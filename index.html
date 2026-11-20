@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>노화도 관측소</title>
+<style>
+  :root{
+    --bg:#071a2b; --card:#0e2a42; --card2:#123553; --line:#1f4a6e;
+    --text:#e8f1f8; --sub:#8fb0c9; --accent:#4fc3e8; --warm:#ffb45c; --good:#5fd39a; --bad:#ff7a7a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:linear-gradient(180deg,#04111d 0%,var(--bg) 40%);color:var(--text);min-height:100vh}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 40px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+  h1{font-size:22px;margin:0;letter-spacing:-.5px}
+  .sub{color:var(--sub);font-size:13px}
+  button{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+  .card h2{font-size:14px;color:var(--sub);margin:0 0 10px;font-weight:600;display:flex;justify-content:space-between}
+  .big{font-size:34px;font-weight:700;letter-spacing:-1px}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .label{font-size:12px;color:var(--sub)}
+  .val{font-size:18px;font-weight:600;margin-top:2px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:12px}
+  .bar{flex:1;background:var(--accent);border-radius:3px 3px 0 0;min-height:3px;position:relative}
+  .bar.best{background:var(--warm)}
+  .hours{display:flex;gap:3px;margin-top:4px}
+  .hours span{flex:1;text-align:center;font-size:10px;color:var(--sub)}
+  .note{font-size:12px;color:var(--sub);margin-top:10px;line-height:1.5}
+  .err{color:var(--bad);font-size:13px}
+  .soon{opacity:.6}
+  footer{font-size:11px;color:var(--sub);text-align:center;margin-top:20px;line-height:1.6}
+  footer a{color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🔭 노화도 관측소</h1>
+      <div class="sub" id="updated">불러오는 중…</div>
+    </div>
+    <button id="refresh">새로고침</button>
+  </header>
+
+  <!-- 날씨 -->
+  <div class="card" id="weather">
+    <h2><span>지금 노화도</span><span id="wIcon"></span></h2>
+    <div class="big" id="temp">--°</div>
+    <div class="sub" id="wDesc">&nbsp;</div>
+    <div class="row" style="margin-top:12px">
+      <div><div class="label">체감</div><div class="val" id="feels">--</div></div>
+      <div><div class="label">바람</div><div class="val" id="wind">--</div></div>
+      <div><div class="label">습도</div><div class="val" id="hum">--</div></div>
+    </div>
+  </div>
+
+  <!-- 바다 -->
+  <div class="card" id="sea">
+    <h2><span>🌊 오늘의 바다</span><span id="seaTag"></span></h2>
+    <div class="row">
+      <div><div class="label">수온</div><div class="big" id="sst">--</div></div>
+      <div><div class="label">파고</div><div class="big" id="wave">--</div></div>
+    </div>
+    <div class="note" id="seaNote"></div>
+  </div>
+
+  <!-- 해 -->
+  <div class="card" id="sun">
+    <h2><span>🌅 해돋이 · 해넘이</span><span id="sunLeft" class="sub"></span></h2>
+    <div class="row">
+      <div><div class="label">해돋이</div><div class="val" id="sunrise">--</div></div>
+      <div><div class="label">해넘이</div><div class="val" id="sunset">--</div></div>
+      <div><div class="label">노을 시작</div><div class="val" id="golden">--</div></div>
+    </div>
+  </div>
+
+  <!-- 별 -->
+  <div class="card" id="stars">
+    <h2><span>🌌 오늘 밤 별 보기</span><span id="moon"></span></h2>
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <div class="big" id="starScore">--</div>
+      <span class="pill" id="starGrade"></span>
+    </div>
+    <div class="sub" id="starBest"></div>
+    <div class="bars" id="bars"></div>
+    <div class="hours" id="hours"></div>
+    <div class="note">구름이 적고 달이 어두울수록 점수가 높아요. 주황 막대가 가장 좋은 시간이에요.</div>
+  </div>
+
+  <!-- 태풍 -->
+  <div class="card soon">
+    <h2><span>🌀 태풍</span><span class="pill" style="background:var(--card2)">준비 중</span></h2>
+    <div class="note" style="margin:0">기상청 태풍 정보는 다음 단계에서 연결해요.</div>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <footer>
+    날씨·바다 데이터: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0)<br>
+    수온·파고는 모델 예측값이라 실제 관측과 차이가 있을 수 있어요.
+  </footer>
+</div>
+
+<script>
+const LAND = {lat:34.18, lon:126.56};               // 노화도
+const SEA_POINTS = [[34.13,126.50],[34.22,126.48],[34.10,126.62],[34.25,126.62]]; // 근해 후보
+
+const WCODE = {0:["맑음","☀️"],1:["대체로 맑음","🌤️"],2:["구름 조금","⛅"],3:["흐림","☁️"],45:["안개","🌫️"],48:["안개","🌫️"],
+  51:["이슬비","🌦️"],53:["이슬비","🌦️"],55:["이슬비","🌦️"],61:["비","🌧️"],63:["비","🌧️"],65:["강한 비","🌧️"],
+  66:["어는 비","🌧️"],67:["어는 비","🌧️"],71:["눈","🌨️"],73:["눈","🌨️"],75:["많은 눈","❄️"],77:["싸락눈","🌨️"],
+  80:["소나기","🌦️"],81:["소나기","🌦️"],82:["강한 소나기","⛈️"],85:["눈 소나기","🌨️"],86:["눈 소나기","🌨️"],
+  95:["뇌우","⛈️"],96:["뇌우·우박","⛈️"],99:["뇌우·우박","⛈️"]};
+const DIRS = ["북","북동","동","남동","남","남서","서","북서"];
+
+const $ = id => document.getElementById(id);
+const hm = s => s.slice(11,16);
+
+// 달 위상 (기준 신월: 2000-01-06 18:14 UTC)
+function moonInfo(date){
+  const syn = 29.530588853;
+  const days = (date.getTime() - Date.UTC(2000,0,6,18,14)) / 86400000;
+  const age = ((days % syn) + syn) % syn;
+  const illum = (1 - Math.cos(2*Math.PI*age/syn)) / 2;
+  const names = [["🌑","그믐·삭"],["🌒","초승달"],["🌓","상현달"],["🌔","차오르는 달"],["🌕","보름달"],["🌖","기우는 달"],["🌗","하현달"],["🌘","그믐달"]];
+  const idx = Math.floor(((age/syn)*8)+0.5) % 8;
+  return {age, illum, emoji:names[idx][0], name:names[idx][1]};
+}
+
+function grade(score){
+  if(score>=80) return ["최고","var(--good)","#06301c"];
+  if(score>=60) return ["좋음","var(--accent)","#062636"];
+  if(score>=40) return ["보통","var(--warm)","#3a2405"];
+  return ["어려움","var(--bad)","#3a0a0a"];
+}
+
+function waveState(h){
+  if(h==null) return ["",""];
+  if(h<0.5) return ["잔잔","var(--good)"];
+  if(h<1.5) return ["보통","var(--accent)"];
+  if(h<2.5) return ["높음","var(--warm)"];
+  return ["매우 높음","var(--bad)"];
+}
+
+async function getJSON(url){
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function loadWeather(){
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${LAND.lat}&longitude=${LAND.lon}`+
+    `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m`+
+    `&hourly=cloud_cover,relative_humidity_2m&daily=sunrise,sunset&timezone=Asia%2FSeoul&forecast_days=2&wind_speed_unit=ms`;
+  return getJSON(u);
+}
+
+async function loadSea(){
+  for(const [la,lo] of SEA_POINTS){
+    try{
+      const d = await getJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${la}&longitude=${lo}`+
+        `&current=wave_height,sea_surface_temperature&timezone=Asia%2FSeoul`);
+      if(d.current && d.current.sea_surface_temperature!=null) return d;
+    }catch(e){}
+  }
+  return null;
+}
+
+function renderWeather(w){
+  const c = w.current;
+  const [desc,icon] = WCODE[c.weather_code] || ["",""];
+  $("temp").textContent = Math.round(c.temperature_2m)+"°";
+  $("wIcon").textContent = icon;
+  $("wDesc").textContent = desc;
+  $("feels").textContent = Math.round(c.apparent_temperature)+"°";
+  $("wind").textContent = `${DIRS[Math.round(c.wind_direction_10m/45)%8]} ${c.wind_speed_10m.toFixed(1)}m/s`;
+  $("hum").textContent = Math.round(c.relative_humidity_2m)+"%";
+
+  // 해
+  const now = c.time; // "YYYY-MM-DDTHH:MM"
+  const sr = w.daily.sunrise[0], ss = w.daily.sunset[0];
+  $("sunrise").textContent = hm(sr);
+  $("sunset").textContent = hm(ss);
+  const g = new Date(ss+":00+09:00"); g.setMinutes(g.getMinutes()-30);
+  $("golden").textContent = g.toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"Asia/Seoul"});
+  const mins = Math.round((new Date(ss+":00+09:00") - new Date(now+":00+09:00"))/60000);
+  $("sunLeft").textContent = mins>0 ? `해넘이까지 ${Math.floor(mins/60)}시간 ${mins%60}분` : "오늘 해는 졌어요";
+
+  // 별: 오늘 해넘이+1h ~ 내일 해돋이-1h
+  const start = new Date(ss+":00+09:00").getTime() + 3600e3;
+  const end = new Date(w.daily.sunrise[1]+":00+09:00").getTime() - 3600e3;
+  const moon = moonInfo(new Date());
+  $("moon").textContent = `${moon.emoji} ${moon.name} ${Math.round(moon.illum*100)}%`;
+  const pts = [];
+  w.hourly.time.forEach((t,i)=>{
+    const ms = new Date(t+":00+09:00").getTime();
+    if(ms>=start && ms<=end){
+      let s = 100 - w.hourly.cloud_cover[i];
+      s -= moon.illum*35;
+      if(w.hourly.relative_humidity_2m[i] > 90) s -= 10;
+      pts.push({h:t.slice(11,13), s:Math.max(0,Math.min(100,Math.round(s)))});
+    }
+  });
+  if(!pts.length){ $("starScore").textContent="--"; return; }
+  const best = pts.reduce((a,b)=>b.s>a.s?b:a);
+  const avg = Math.round(pts.reduce((a,b)=>a+b.s,0)/pts.length);
+  $("starScore").textContent = avg;
+  const [gl,gc,gbg] = grade(avg);
+  const p = $("starGrade"); p.textContent = gl; p.style.color = gc; p.style.background = gbg;
+  $("starBest").textContent = `가장 좋은 시간: ${best.h}시 (${best.s}점)`;
+  $("bars").innerHTML = pts.map(x=>`<div class="bar ${x===best?'best':''}" style="height:${Math.max(4,x.s*0.7)}px" title="${x.h}시 ${x.s}점"></div>`).join("");
+  $("hours").innerHTML = pts.map((x,i)=>`<span>${i%2===0?x.h:''}</span>`).join("");
+}
+
+function renderSea(s){
+  if(!s){ $("seaNote").textContent = "근해 바다 데이터를 받지 못했어요."; return; }
+  const c = s.current;
+  $("sst").textContent = c.sea_surface_temperature.toFixed(1)+"℃";
+  $("wave").textContent = c.wave_height!=null ? c.wave_height.toFixed(1)+"m" : "--";
+  const [lbl,col] = waveState(c.wave_height);
+  const t = $("seaTag"); t.textContent = lbl; t.className="pill"; t.style.color=col; t.style.background="var(--card2)";
+  $("seaNote").textContent = `노화도 근해(${s.latitude.toFixed(2)}, ${s.longitude.toFixed(2)}) 기준`;
+}
+
+async function load(){
+  $("err").textContent = "";
+  $("updated").textContent = "불러오는 중…";
+  try{
+    const [w,s] = await Promise.all([loadWeather(), loadSea()]);
+    renderWeather(w);
+    renderSea(s);
+    $("updated").textContent = new Date().toLocaleString("ko-KR",{month:"long",day:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Seoul"})+" 기준";
+  }catch(e){
+    $("err").textContent = "데이터를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.";
+    $("updated").textContent = "";
+  }
+}
+$("refresh").onclick = load;
+load();
+</script>
+</body>
+</html>
